@@ -1,2 +1,2 @@
 # PortlandBot
-Reddit's r/Portland falir/post surveilllance bot
+Reddit's r/Portland flair/post surveilllance bot
