@@ -133,7 +133,7 @@ def flairbot(config, cur, sql, num_cycles):
 			print(pid + ' - no trigger')
 				
 def run(config):
-	sql = sqlite3.connect('flair.db')
+	sql = sqlite3.connect('AddLinkFlairFromComment/flair.db')
 	cur = sql.cursor()
 	init(config, cur, sql)
 	cycles = 0

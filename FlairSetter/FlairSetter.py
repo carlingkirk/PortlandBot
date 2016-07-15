@@ -4,60 +4,74 @@ import datetime
 import sqlite3
 from datetime import datetime, timedelta
 
-USERNAME = ""
-#This is the bot's Username. In order to send mail, he must have some amount of Karma.
-PASSWORD = ""
-#This is the bot's Password. 
-USERAGENT = "/r/Portland menu updater"
-#This is a short description of what the bot does. For example "/r/pkmntcgtrades post limit bot"
-SUBREDDIT = "Portland"
-#This is the sub or list of subs to scan for new posts. For a single sub, use "sub1". For multiple subreddits, use "sub1+sub2+sub3+..."
-MAXPOSTS = 15
-#This is how many posts you want to retreieve all at once. Max 100, but you won't need that many.
-WAIT = 300
-#This is how many seconds you will wait between cycles. The bot is completely inactive during this time.
-WAITS = str(WAIT)
-# Which post should the test comments go to
-MSGPOSTID = "4dhpyb"
+def run(config):
+	USERNAME = config['reddit_username']
+	#This is the bot's Username. In order to send mail, he must have some amount of Karma.
+	PASSWORD = config['reddit_password']
+	#This is the bot's Password. 
+	USERAGENT = "/r/Portland report monitor"
+	#This is a short description of what the bot does. For example "/r/pkmntcgtrades post limit bot"
+	SUBREDDIT = "PortlandTesting"
+	#This is the sub or list of subs to scan for new posts. For a single sub, use "sub1". For multiple subreddits, use "sub1+sub2+sub3+..."
+	MAXPOSTS = 15
+	#This is how many posts you want to retreieve all at once. Max 100, but you won't need that many.
+	WAIT = 300
+	#This is how many seconds you will wait between cycles. The bot is completely inactive during this time.
+	WAITS = str(WAIT)
+	# Which post should the test comments go to
+	MSGPOSTID = "4szkzi"
 
-sql = sqlite3.connect('sql.db', detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
-print('Loaded SQL Database')
-cur = sql.cursor()
+	sql = sqlite3.connect('FlairSetter/sql.db', detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
+	print('Loaded SQL Database')
+	cur = sql.cursor()
 
-#cur.execute('CREATE TABLE IF NOT EXISTS users(name TEXT, lastpost TEXT)')
-#print('Loaded Users')
-cur.execute('CREATE TABLE IF NOT EXISTS oldposts(stamp TEXT, id TEXT)')
-print('Loaded Oldposts')
-#cur.execute('CREATE TABLE IF NOT EXISTS links(title TEXT, url TEXT)')
-#print('Loaded Links')
-sql.commit()
+	#cur.execute('CREATE TABLE IF NOT EXISTS users(name TEXT, lastpost TEXT)')
+	#print('Loaded Users')
+	cur.execute('CREATE TABLE IF NOT EXISTS oldposts(stamp TEXT, id TEXT)')
+	print('Loaded Oldposts')
+	#cur.execute('CREATE TABLE IF NOT EXISTS links(title TEXT, url TEXT)')
+	#print('Loaded Links')
+	sql.commit()
 
-# clean oldposts
-now = datetime.now()
-today = now.strftime("%Y-%m-%d")
-clean = datetime.now() - timedelta(days=32)
-too_old = clean.strftime("%Y-%m-%d")
-print('Removed post IDs from before %s' % too_old)
-cur.execute('DELETE FROM oldposts WHERE stamp < "%s"' % too_old)
-sql.commit()
+	# clean oldposts
+	now = datetime.now()
+	today = now.strftime("%Y-%m-%d")
+	clean = datetime.now() - timedelta(days=32)
+	too_old = clean.strftime("%Y-%m-%d")
+	print('Removed post IDs from before %s' % too_old)
+	cur.execute('DELETE FROM oldposts WHERE stamp < "%s"' % too_old)
+	sql.commit()
 
-r = praw.Reddit(USERAGENT)
-r.config.decode_html_entities = True
+	r = praw.Reddit(USERAGENT)
+	r.config.decode_html_entities = True
 
-Trying = True
-while Trying:
-	try:
-		r.login(USERNAME, PASSWORD,disable_warning=True)
-		print('Successfully logged in')
-		Trying = False
-	except praw.errors.InvalidUserPass:
-		print('Wrong Username or Password')
-		quit()
-	except Exception as e:
-		print("%s" % e)
-		time.sleep(5)
-		
-def scan():
+	Trying = True
+	while Trying:
+		try:
+			r.login(USERNAME, PASSWORD,disable_warning=True)
+			print('Successfully logged in')
+			Trying = False
+		except praw.errors.InvalidUserPass:
+			print('Wrong Username or Password')
+			quit()
+		except Exception as e:
+			print("%s" % e)
+			time.sleep(5)
+
+	while True:
+		try:
+			scan(r, cur, sql, SUBREDDIT, MAXPOSTS, MSGPOSTID)
+		except Exception as e:
+			print('An error has occured:', e)
+		#cur.execute("SELECT * FROM oldposts;")
+		#print('\nOLDPOSTS:')
+		#print(cur.fetchall())
+		print('\nRunning again in ' + WAITS + ' seconds.\n')
+		time.sleep(WAIT)
+
+def scan(r, cur, sql, SUBREDDIT, MAXPOSTS, MSGPOSTID):
+	now = datetime.now()
+	today = now.strftime("%Y-%m-%d")
 	newflairtext = 'No Matches'
 	newflaircss = 'no matches'
 	print('Scanning /r/' + SUBREDDIT + '')
@@ -186,21 +200,12 @@ def scan():
 				time.sleep(3)
 				cur.execute('INSERT INTO oldposts VALUES("%s", "%s")' % (today, pid))
 				print( 'Adding "%s" to database (%s)' % ( pid, today ) )
-				# notify			
-				msgpost = r.get_submission(submission_id=MSGPOSTID)			
-				msgpost.add_comment(msg)
+				# notify	
+				if MSGPOSTID != "":		
+					msgpost = r.get_submission(submission_id=MSGPOSTID)			
+					msgpost.add_comment(msg)
 				
 			else:
 				print('Already knew about %s' % ( plink ))
 			sql.commit()
 
-while True:
-	try:
-		scan()
-	except Exception as e:
-		print('An error has occured:', e)
-	#cur.execute("SELECT * FROM oldposts;")
-	#print('\nOLDPOSTS:')
-	#print(cur.fetchall())
-	print('\nRunning again in ' + WAITS + ' seconds.\n')
-	time.sleep(WAIT)
